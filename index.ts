@@ -69,8 +69,8 @@ Methods extends Record<string, unknown> = {},
 Emits extends Record<string, unknown> = {}
 > extends HTMLElement {
 
-    private readonly _app: App;
-    private readonly _component:ComponentPublicInstance<Props, {}, {}, {}, VueMethodFromMap<Methods>, VueMethodFromMap<Emits>>;
+    protected readonly _app: App;
+    protected readonly _component:ComponentPublicInstance<Props, {}, {}, {}, VueMethodFromMap<Methods>, VueMethodFromMap<Emits>>;
 
     public readonly properties:Props;
 
