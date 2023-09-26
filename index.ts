@@ -46,9 +46,12 @@ export function addComponents(app: App, components: ComponentMap): void {
  * @param onChange
  * @returns
  */
-export function watchProp<TProps,TType>(props:TProps, key:keyof TProps, onChange: (newValue:TType) => any):(newValue:TType) => any {
+export function watchProp
+    <TKey extends keyof TProps, TProps>
+    (props:TProps, key:TKey, onChange: (newValue:TProps[TKey], oldValue:TProps[TKey]) => any)
+    : (newValue:TProps[TKey], oldValue:TProps[TKey]) => any {
 
-    watch(() => props[key], <(newValue:TProps[keyof TProps]) => any>onChange);
+    watch(() => props[key], onChange);
     return onChange;
 }
 
@@ -57,6 +60,10 @@ export function watchProp<TProps,TType>(props:TProps, key:keyof TProps, onChange
  */
 export type VueMethodFromMap<Map extends Record<string, unknown>> = {
     [k in keyof Map]: (value:Map[k]) => void | PromiseLike<any>
+}
+
+export type VueActionsFromMap<Methods extends Record<string, unknown> = {}> = {
+    [k in keyof Methods]: (value:Methods[keyof Methods]) => void
 }
 
 /**
@@ -93,21 +100,27 @@ Emits extends Record<string, unknown> = {}
         this.addStyles(component, this._app._context.components);
         this._component = <any>this._app.mount(this);
 
-        this.properties = new Proxy(<Props>this._component.$.props, {
+        this.properties = <Props>new Proxy(<any>this._component.$.props, {
             get(target, name) {
                 return target[name.toString()];
             },
-            set(target, name, newValue) {
+            set(target, name, newValue, oldValue) {
+
+                if (newValue === oldValue) {
+                    return false;
+                }
+
                 const key:keyof Props = <any>name;
                 target[key] = newValue;
                 return true;
             }
         });
-        this.actions = <{[k in keyof Methods]: (value:Methods[keyof Methods]) => void }>this._component.$.exposeProxy;
+        this.actions = <VueActionsFromMap<Methods>>this._component.$.exposeProxy;
 
         for(const emit of (<{ emits?: (keyof Emits)[] }>component).emits ?? []) {
             this.registerListener(emit);
         }
+        this.afterMount();
     }
 
     addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
@@ -125,6 +138,8 @@ Emits extends Record<string, unknown> = {}
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     protected uninstall(_:App<VueComponent>): void {}
+
+    protected afterMount() { }
 
     protected connectedCallback() { }
 
