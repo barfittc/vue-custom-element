@@ -48,8 +48,8 @@ export function addComponents(app: App, components: ComponentMap): void {
  */
 export function watchProp
     <TKey extends keyof TProps, TProps>
-    (props:TProps, key:TKey, onChange: (newValue:TProps[TKey], oldValue:TProps[TKey]) => any)
-    : (newValue:TProps[TKey], oldValue:TProps[TKey]) => any {
+    (props:TProps, key:TKey, onChange: (newValue:TProps[TKey]) => any)
+    : (newValue:TProps[TKey]) => any {
 
     watch(() => props[key], onChange);
     return onChange;
@@ -62,8 +62,8 @@ export type VueMethodFromMap<Map extends Record<string, unknown>> = {
     [k in keyof Map]: (value:Map[k]) => void | PromiseLike<any>
 }
 
-export type VueActionsFromMap<Methods extends Record<string, unknown> = {}> = {
-    [k in keyof Methods]: (value:Methods[keyof Methods]) => void
+export type VueEmitFromMap<Emits extends Record<string, unknown> = {}> = {
+    emit<K extends keyof Emits> (evt: K, ...args: Emits[K][]): void
 }
 
 /**
@@ -83,12 +83,45 @@ Emits extends Record<string, unknown> = {}
 
     public readonly actions:VueMethodFromMap<Methods>;
 
+    protected get required():(keyof Props)[] {  return []; }
+    protected get defaults():Partial<Props> {  return { }; }
+
     constructor(component: Component, attrs?:Props, registerComponents?:ComponentMap) {
         super();
 
         const properties:Props = attrs ?? <any>{};
+        const PropsMap =  (<any>component).props;
+        const lowerToCamelKeys:Record<string,string> = {};
+        for (const index of Object.keys(PropsMap)) {
+            lowerToCamelKeys[index.toLowerCase()] = index;
+        }
+
         for (const index in Object.keys(this.attributes)) {
-            properties[<keyof Props>this.attributes[index].name] = <Props[keyof Props]>this.attributes[index].value;
+            const key:keyof Props = lowerToCamelKeys[this.attributes[index].name] ?? this.attributes[index].name;
+            if (PropsMap[key] && PropsMap[key].type) {
+                if (PropsMap[key].type === Boolean) {
+                    // if it's set, and a bool, then it's true
+                    properties[key] = <any>true;
+                }
+                else {
+                    properties[key] = (PropsMap[key].type(this.attributes[index].value))
+                }
+            }
+            else {
+                properties[key] = <any>this.attributes[index].value;
+            }
+        }
+
+        for(const prop of this.required) {
+            if (properties[prop] === undefined || properties[prop] === null || properties[prop] === "" || properties[prop] === "[object Object]") {
+                throw new Error(`Required property ${String(prop)} is not valid, or isn't set.`);
+            }
+        }
+
+        for(const prop of keysOf(this.defaults)) {
+            if (properties[prop] === undefined || properties[prop] === null || properties[prop] === "" || properties[prop] === "[object Object]") {
+                properties[prop] = <any>this.defaults[prop];
+            }
         }
 
         this._app = createApp(component, properties);
@@ -115,7 +148,7 @@ Emits extends Record<string, unknown> = {}
                 return true;
             }
         });
-        this.actions = <VueActionsFromMap<Methods>>this._component.$.exposeProxy;
+        this.actions = <VueMethodFromMap<Methods>>this._component.$.exposeProxy;
 
         for(const emit of (<{ emits?: (keyof Emits)[] }>component).emits ?? []) {
             this.registerListener(emit);
