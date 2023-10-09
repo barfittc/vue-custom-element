@@ -1,6 +1,6 @@
 {
     "name": "@barfittc/vue-custom-element",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "main": "index.ts",
     "private": false,
     "scripts": {

@@ -51,6 +51,7 @@ export function watchProp
     (props:TProps, key:TKey, onChange: (newValue:TProps[TKey]) => any)
     : (newValue:TProps[TKey]) => any {
 
+    onChange(props[key]);
     watch(() => props[key], onChange);
     return onChange;
 }
@@ -75,6 +76,11 @@ Props extends Record<string, unknown> = {},
 Methods extends Record<string, unknown> = {},
 Emits extends Record<string, unknown> = {}
 > extends HTMLElement {
+    private static _observedAttributes:string[];
+    static get observedAttributes() {
+        return VueElement._observedAttributes;
+      }
+      
 
     protected readonly _app: App;
     protected readonly _component:ComponentPublicInstance<Props, {}, {}, {}, VueMethodFromMap<Methods>, VueMethodFromMap<Emits>>;
@@ -92,7 +98,7 @@ Emits extends Record<string, unknown> = {}
         const properties:Props = attrs ?? <any>{};
         const PropsMap =  (<any>component).props;
         const lowerToCamelKeys:Record<string,string> = {};
-        for (const index of Object.keys(PropsMap)) {
+        for (const index of VueElement._observedAttributes = Object.keys(PropsMap)) {
             lowerToCamelKeys[index.toLowerCase()] = index;
         }
 
